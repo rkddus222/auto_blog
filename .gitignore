@@ -3,4 +3,5 @@
 __pycache__/
 .pytest_cache/
 *.pyc
+gemini_service_account.json
 output/*.md

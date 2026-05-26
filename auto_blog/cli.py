@@ -5,13 +5,14 @@ import sys
 from pathlib import Path
 
 from auto_blog.config import load_settings
+from auto_blog.graph_flow import run_blog_graph
 from auto_blog.git_ops import publish_file
 from auto_blog.gemini_client import GeminiBlogClient
+from auto_blog.image_service import build_default_blog_image_prompt, save_generated_image
 from auto_blog.prompts import BlogRequest
 from auto_blog.topic_ideas import TopicIdeasRequest, generate_topic_ideas
-from auto_blog.writer import generate_and_save, generate_only
 
-KNOWN_COMMANDS = {"write", "ideas", "publish"}
+KNOWN_COMMANDS = {"write", "ideas", "publish", "image"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +59,21 @@ def build_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("--model", default="", help="Override GEMINI_MODEL just for this run")
     publish_parser.add_argument("--commit-message", default="", help="Override git commit message")
 
+    image_parser = subparsers.add_parser("image", help="Generate a hero image with Nano Banana")
+    image_parser.add_argument("topic", help="Main blog topic")
+    image_parser.add_argument("--title", default="", help="Optional blog title")
+    image_parser.add_argument("--audience", default="general readers", help="Target audience")
+    image_parser.add_argument(
+        "--style-hint",
+        default="clean editorial illustration",
+        help="Visual style hint for the image",
+    )
+    image_parser.add_argument(
+        "--model",
+        default="",
+        help="Override GEMINI_MODEL just for this run",
+    )
+
     return parser
 
 
@@ -81,7 +97,7 @@ def main() -> int:
     try:
         settings = load_settings()
         model = args.model.strip() or settings.model
-        client = GeminiBlogClient(api_key=settings.api_key, model=model)
+        client = GeminiBlogClient(settings=settings, model=model)
 
         if command == "ideas":
             request = TopicIdeasRequest(
@@ -96,6 +112,28 @@ def main() -> int:
                 print(f"{index}. {idea}")
             return 0
 
+        if command == "image":
+            prompt = build_default_blog_image_prompt(
+                topic=args.topic.strip(),
+                title=args.title.strip(),
+                audience=args.audience.strip(),
+                style_hint=args.style_hint.strip() or "clean editorial illustration",
+            )
+            payload = client.generate_image(prompt)
+            generated = save_generated_image(
+                image_bytes=payload.image_bytes,
+                mime_type=payload.mime_type,
+                output_dir=settings.output_dir,
+                title_or_topic=args.title.strip() or args.topic.strip(),
+                prompt=prompt,
+                caption=payload.text,
+            )
+            print(f"Saved image: {generated.path}")
+            print(f"MIME type: {generated.mime_type}")
+            if generated.caption:
+                print(f"Model text: {generated.caption}")
+            return 0
+
         request = BlogRequest(
             topic=args.topic.strip(),
             audience=args.audience.strip(),
@@ -105,20 +143,18 @@ def main() -> int:
             keywords=parse_keywords(args.keywords),
         )
 
-        if command == "write" and args.dry_run:
-            post = generate_only(request=request, generator=client.generate_markdown)
-        else:
-            post = generate_and_save(
-                request=request,
-                output_dir=settings.output_dir,
-                generator=client.generate_markdown,
+        post = run_blog_graph(
+            request=request,
+            output_dir=settings.output_dir,
+            generator=client.generate_markdown,
+            save_output=not (command == "write" and args.dry_run),
+        )
+        if command == "publish":
+            result = publish_file(
+                repo_dir=Path.cwd(),
+                target=post.path,
+                commit_message=args.commit_message.strip() or None,
             )
-            if command == "publish":
-                result = publish_file(
-                    repo_dir=Path.cwd(),
-                    target=post.path,
-                    commit_message=args.commit_message.strip() or None,
-                )
     except Exception as exc:  # pragma: no cover
         print(f"Error: {exc}", file=sys.stderr)
         return 1

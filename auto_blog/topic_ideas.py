@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from auto_blog.prompt_manager import PromptTemplates
 from auto_blog.prompts import build_topic_ideas_prompt
 
 
@@ -28,13 +29,18 @@ def parse_ideas_list(text: str) -> list[str]:
     return ideas
 
 
-def generate_topic_ideas(request: TopicIdeasRequest, generator: callable) -> list[str]:
+def generate_topic_ideas(
+    request: TopicIdeasRequest,
+    generator: callable,
+    templates: PromptTemplates | None = None,
+) -> list[str]:
     prompt = build_topic_ideas_prompt(
         seed=request.seed,
         audience=request.audience,
         language=request.language,
         count=request.count,
         keywords=request.keywords or [],
+        templates=templates,
     )
     raw = generator(prompt)
     ideas = parse_ideas_list(raw)

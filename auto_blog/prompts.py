@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from auto_blog.prompt_manager import PromptTemplates, load_prompt_templates, render_prompt
+
 
 @dataclass(slots=True)
 class BlogRequest:
@@ -13,28 +15,81 @@ class BlogRequest:
     keywords: list[str] = field(default_factory=list)
 
 
-def build_blog_prompt(request: BlogRequest) -> str:
-    keywords = ", ".join(request.keywords) if request.keywords else "none provided"
-    cta = request.cta if request.cta else "No explicit CTA."
+def _join_keywords(keywords: list[str]) -> str:
+    return ", ".join(keywords) if keywords else "없음"
 
+
+def _cta_text(cta: str) -> str:
+    return cta if cta else "명시된 CTA 없음"
+
+
+def _blog_context_block(request: BlogRequest) -> str:
     return f"""
-You are an expert blog editor.
-Write a polished blog post draft in {request.language}.
-
-Requirements:
-- Topic: {request.topic}
-- Target audience: {request.audience}
-- Tone: {request.tone}
-- SEO keywords to naturally include: {keywords}
-- CTA: {cta}
-- Output only markdown.
-- Start with a single H1 title.
-- After the title, include a short intro paragraph.
-- Use clear H2/H3 sections.
-- Include practical examples or steps where useful.
-- End with a short conclusion section.
-- Do not wrap the result in code fences.
+기본 정보:
+- 주제: {request.topic}
+- 타깃 독자: {request.audience}
+- 톤앤매너: {request.tone}
+- 출력 언어: {request.language}
+- SEO 키워드: {_join_keywords(request.keywords)}
+- CTA: {_cta_text(request.cta)}
 """.strip()
+
+
+def _templates(overrides: PromptTemplates | None = None) -> PromptTemplates:
+    return overrides or load_prompt_templates()
+
+
+def _request_values(request: BlogRequest) -> dict[str, str]:
+    return {
+        "topic": request.topic,
+        "audience": request.audience,
+        "tone": request.tone,
+        "language": request.language,
+        "keywords": _join_keywords(request.keywords),
+        "cta": _cta_text(request.cta),
+        "context_block": _blog_context_block(request),
+    }
+
+
+def build_blog_prompt(request: BlogRequest, templates: PromptTemplates | None = None) -> str:
+    return render_prompt(_templates(templates).blog, _request_values(request))
+
+
+def build_research_brief_prompt(request: BlogRequest, templates: PromptTemplates | None = None) -> str:
+    values = _request_values(request)
+    return render_prompt(_templates(templates).research, values)
+
+
+def build_outline_prompt(
+    request: BlogRequest,
+    research_brief: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["research_brief"] = research_brief
+    return render_prompt(_templates(templates).outline, values)
+
+
+def build_draft_prompt(
+    request: BlogRequest,
+    research_brief: str,
+    outline: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["research_brief"] = research_brief
+    values["outline"] = outline
+    return render_prompt(_templates(templates).draft, values)
+
+
+def build_polish_prompt(
+    request: BlogRequest,
+    draft_markdown: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["draft_markdown"] = draft_markdown
+    return render_prompt(_templates(templates).polish, values)
 
 
 def build_topic_ideas_prompt(
@@ -43,20 +98,29 @@ def build_topic_ideas_prompt(
     language: str,
     count: int,
     keywords: list[str],
+    templates: PromptTemplates | None = None,
 ) -> str:
-    keyword_text = ", ".join(keywords) if keywords else "none provided"
-    return f"""
-You are a content strategist for a blog.
-Generate {count} strong blog topic ideas in {language}.
+    values = {
+        "seed": seed,
+        "audience": audience,
+        "language": language,
+        "count": count,
+        "keywords": _join_keywords(keywords),
+    }
+    return render_prompt(_templates(templates).topic_ideas, values)
 
-Requirements:
-- Seed theme: {seed}
-- Target audience: {audience}
-- Keywords to reflect where relevant: {keyword_text}
-- Output only a numbered list.
-- Each item must include:
-  1. a clear title
-  2. one short explanation after a colon
-- Avoid generic or repetitive ideas.
-- Prefer practical, searchable topics with business value.
-""".strip()
+
+def build_blog_image_prompt(
+    topic: str,
+    title: str = "",
+    audience: str = "general readers",
+    style_hint: str = "clean editorial illustration",
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = {
+        "topic": topic,
+        "title": title or "없음",
+        "audience": audience,
+        "style_hint": style_hint,
+    }
+    return render_prompt(_templates(templates).blog_image, values)
