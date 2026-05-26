@@ -1,0 +1,2 @@
+"""Auto blog generator package."""
+
