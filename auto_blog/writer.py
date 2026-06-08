@@ -30,13 +30,17 @@ def extract_title(markdown: str, fallback: str) -> str:
         stripped = line.strip()
         if stripped.startswith("# "):
             return stripped[2:].strip() or fallback
+        if stripped:
+            return stripped
     return fallback
 
 
 def ensure_h1(markdown: str, title: str) -> str:
     if any(line.strip().startswith("# ") for line in markdown.splitlines()):
         return markdown.strip()
-    return f"# {title}\n\n{markdown.strip()}"
+    if markdown.strip():
+        return markdown.strip()
+    return title
 
 
 def build_front_matter(title: str, topic: str, request: BlogRequest) -> str:

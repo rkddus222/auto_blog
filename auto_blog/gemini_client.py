@@ -57,6 +57,19 @@ class GeminiBlogClient:
             raise ValueError("Gemini returned an empty response.")
         return text.strip()
 
+    def generate_grounded_markdown(self, prompt: str) -> str:
+        response = self._client.models.generate_content(
+            model=self._model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())]
+            ),
+        )
+        text = getattr(response, "text", "") or ""
+        if not text.strip():
+            raise ValueError("Gemini returned an empty grounded response.")
+        return text.strip()
+
     def generate_image(self, prompt: str, model: str = "gemini-2.5-flash-image") -> GeneratedImagePayload:
         response = self._client.models.generate_content(
             model=model,

@@ -147,6 +147,7 @@ def main() -> int:
             request=request,
             output_dir=settings.output_dir,
             generator=client.generate_markdown,
+            grounded_generator=client.generate_grounded_markdown,
             save_output=not (command == "write" and args.dry_run),
         )
         if command == "publish":

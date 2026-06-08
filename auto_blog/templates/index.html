@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,196 +9,294 @@
   <body>
     <main class="shell">
       <section class="hero">
-        <p class="eyebrow">Gemini Writing Console</p>
-        <h1>Generate, inspect, and ship blog posts without leaving Python.</h1>
-        <p class="lede">Start with topic ideas, turn one into a draft, then commit and push it when the draft is ready.</p>
+        <p class="eyebrow">LangGraph 블로그 에이전트</p>
+        <h1>처음 입력 한 번으로 최종 블로그 초안까지 생성합니다.</h1>
+        <p class="lede">주제와 독자를 입력하면 에이전트가 키워드를 추출하고, 그 키워드로 초안을 작성한 뒤 다듬어서 최종 결과물을 보여줍니다.</p>
       </section>
 
       {% if state.error_message %}
       <section class="banner banner-error">
-        <strong>Run failed.</strong>
+        <strong>실행에 실패했습니다.</strong>
         <span>{{ state.error_message }}</span>
       </section>
       {% endif %}
 
-      {% if state.publish_result %}
-      <section class="banner banner-success">
-        <strong>Publish complete.</strong>
-        <span>{{ state.publish_result }}</span>
-      </section>
-      {% endif %}
-
-      <section class="grid">
-        <article class="panel panel-accent">
+      <section class="workspace">
+        <article class="panel input-panel">
           <div class="panel-head">
-            <p class="kicker">Step 1</p>
-            <h2>Find topic angles</h2>
+            <div>
+              <p class="kicker">입력</p>
+              <h2>처음에 필요한 정보</h2>
+            </div>
           </div>
-          <form action="/ideas" method="post" class="stack">
+          <form action="/generate" method="post" class="stack" data-loading-message="에이전트가 키워드 추출, 초안 작성, 최종 다듬기를 진행 중입니다.">
             <label>
-              <span>Seed theme</span>
-              <input name="seed" value="{{ state.seed }}" placeholder="AI automation, SaaS onboarding, creator workflow">
-            </label>
-            <label>
-              <span>Audience</span>
-              <input name="audience" value="{{ state.audience }}">
+              <span>주제</span>
+              <input name="topic" value="{{ state.topic }}" placeholder="예: 스타트업을 위한 AI 업무 자동화 전략" required>
             </label>
             <div class="split">
               <label>
-                <span>Language</span>
-                <input name="language" value="{{ state.language }}">
+                <span>독자</span>
+                <input name="audience" value="{{ state.audience }}" placeholder="예: 스타트업 운영자">
               </label>
               <label>
-                <span>Idea count</span>
-                <input name="count" type="number" min="3" max="20" value="{{ state.idea_count }}">
+                <span>언어</span>
+                <input name="language" value="{{ state.language }}">
               </label>
             </div>
             <label>
-              <span>Keywords</span>
-              <input name="keywords" value="{{ state.keywords }}" placeholder="automation, ai agents, productivity">
+              <span>톤</span>
+              <select name="tone">
+                {% for tone in tone_options %}
+                <option value="{{ tone }}" {% if tone == state.tone %}selected{% endif %}>{{ tone }}</option>
+                {% endfor %}
+              </select>
             </label>
             <label>
-              <span>Model</span>
+              <span>모델</span>
               <input name="model" value="{{ state.model }}" placeholder="gemini-2.5-flash">
             </label>
-            <details class="prompt-editor">
-              <summary>프롬프트 편집</summary>
-              <label>
-                <span>이미지 프롬프트</span>
-                <textarea name="prompt_blog_image">{{ state.prompt_blog_image }}</textarea>
-              </label>
-              <label>
-                <span>주제 아이디어 프롬프트</span>
-                <textarea name="prompt_topic_ideas">{{ state.prompt_topic_ideas }}</textarea>
-              </label>
-            </details>
-            <button type="submit">Generate Ideas</button>
+            <button type="submit" data-default-label="에이전트 실행" data-loading-label="에이전트 실행 중">에이전트 실행</button>
           </form>
-          {% if state.ideas %}
-          <ol class="ideas">
-            {% for idea in state.ideas %}
-            <li>{{ idea }}</li>
-            {% endfor %}
-          </ol>
-          {% endif %}
         </article>
 
-        <article class="panel">
-          <div class="panel-head">
-            <p class="kicker">Step 2</p>
-            <h2>Generate a draft</h2>
-          </div>
-          <form action="/draft" method="post" class="stack">
-            <label>
-              <span>Topic</span>
-              <input name="topic" value="{{ state.topic }}" placeholder="2026 AI automation trends for startups">
-            </label>
-            <div class="split">
-              <label>
-                <span>Audience</span>
-                <input name="audience" value="{{ state.audience }}">
-              </label>
-              <label>
-                <span>Language</span>
-                <input name="language" value="{{ state.language }}">
-              </label>
-            </div>
-            <label>
-              <span>Tone</span>
-              <input name="tone" value="{{ state.tone }}">
-            </label>
-            <label>
-              <span>Keywords</span>
-              <input name="keywords" value="{{ state.keywords }}">
-            </label>
-            <label>
-              <span>CTA</span>
-              <input name="cta" value="{{ state.cta }}" placeholder="Invite readers to subscribe or book a demo">
-            </label>
-            <label>
-              <span>Model</span>
-              <input name="model" value="{{ state.model }}">
-            </label>
-            <details class="prompt-editor">
-              <summary>프롬프트 편집</summary>
-              <label>
-                <span>기본 블로그 프롬프트</span>
-                <textarea name="prompt_blog">{{ state.prompt_blog }}</textarea>
-              </label>
-              <label>
-                <span>리서치 프롬프트</span>
-                <textarea name="prompt_research">{{ state.prompt_research }}</textarea>
-              </label>
-              <label>
-                <span>아웃라인 프롬프트</span>
-                <textarea name="prompt_outline">{{ state.prompt_outline }}</textarea>
-              </label>
-              <label>
-                <span>초안 프롬프트</span>
-                <textarea name="prompt_draft">{{ state.prompt_draft }}</textarea>
-              </label>
-              <label>
-                <span>다듬기 프롬프트</span>
-                <textarea name="prompt_polish">{{ state.prompt_polish }}</textarea>
-              </label>
-            </details>
-            <button type="submit">Create Draft</button>
-          </form>
-        </article>
+        <aside class="panel flow-panel">
+          <p class="kicker">흐름</p>
+          <ol class="flow-list">
+            <li>
+              <strong>키워드 추출</strong>
+              <span>입력 주제와 독자 기준으로 SEO 키워드를 뽑습니다.</span>
+            </li>
+            <li>
+              <strong>초안 작성</strong>
+              <span>추출된 키워드를 다음 노드로 넘겨 글의 뼈대를 만듭니다.</span>
+            </li>
+            <li>
+              <strong>최종 다듬기</strong>
+              <span>문장 흐름, 제목, 가독성을 정리해 최종본을 생성합니다.</span>
+            </li>
+          </ol>
+        </aside>
       </section>
 
-      <section class="preview">
+      <section class="result">
         <div class="preview-head">
           <div>
-            <p class="kicker">Step 3</p>
-            <h2>Review and publish</h2>
+            <p class="kicker">결과</p>
+            <h2>최종 결과물</h2>
           </div>
-          {% if state.draft_path %}
-          <p class="meta">Saved to <code>{{ state.draft_path }}</code></p>
+          {% if state.final_markdown %}
+          <p class="meta">모델 <code>{{ state.model }}</code></p>
           {% endif %}
         </div>
 
-        {% if state.draft_markdown %}
-        <div class="preview-grid">
-          <article class="panel panel-preview">
-            <h3>{{ state.draft_title or "Generated Draft" }}</h3>
-            <pre>{{ state.draft_markdown }}</pre>
-          </article>
+        {% if state.final_markdown %}
+        <div class="result-grid">
+          <article class="panel keyword-panel">
+            <h3>추출된 키워드</h3>
+            <ul class="keyword-list">
+              {% for keyword in state.keywords %}
+              <li>{{ keyword }}</li>
+              {% endfor %}
+            </ul>
 
-          <article class="panel panel-publish">
-            <h3>Push this draft</h3>
-            <form action="/publish" method="post" class="stack">
+            {% if state.title_candidates or state.tags or state.summary %}
+            <div class="metadata-block">
+              {% if state.title_candidates %}
+              <h3>추천 제목</h3>
+              <ol class="compact-list">
+                {% for title in state.title_candidates %}
+                <li>{{ title }}</li>
+                {% endfor %}
+              </ol>
+              {% endif %}
+
+              {% if state.tags %}
+              <h3>추천 태그</h3>
+              <ul class="keyword-list">
+                {% for tag in state.tags %}
+                <li>{{ tag }}</li>
+                {% endfor %}
+              </ul>
+              {% endif %}
+
+              {% if state.summary %}
+              <h3>요약문</h3>
+              <p class="summary-text">{{ state.summary }}</p>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            <form action="/generate-image" method="post" class="stack image-action" data-loading-message="최종 결과물을 바탕으로 대표 이미지를 생성 중입니다.">
               <input type="hidden" name="topic" value="{{ state.topic }}">
               <input type="hidden" name="audience" value="{{ state.audience }}">
               <input type="hidden" name="tone" value="{{ state.tone }}">
               <input type="hidden" name="language" value="{{ state.language }}">
-              <input type="hidden" name="cta" value="{{ state.cta }}">
-              <input type="hidden" name="keywords" value="{{ state.keywords }}">
               <input type="hidden" name="model" value="{{ state.model }}">
-              <input type="hidden" name="draft_path" value="{{ state.draft_path }}">
-              <input type="hidden" name="draft_title" value="{{ state.draft_title }}">
-              <input type="hidden" name="draft_markdown" value="{{ state.draft_markdown }}">
-              <input type="hidden" name="prompt_blog" value="{{ state.prompt_blog }}">
-              <input type="hidden" name="prompt_research" value="{{ state.prompt_research }}">
-              <input type="hidden" name="prompt_outline" value="{{ state.prompt_outline }}">
-              <input type="hidden" name="prompt_draft" value="{{ state.prompt_draft }}">
-              <input type="hidden" name="prompt_polish" value="{{ state.prompt_polish }}">
-              <input type="hidden" name="prompt_topic_ideas" value="{{ state.prompt_topic_ideas }}">
-              <input type="hidden" name="prompt_blog_image" value="{{ state.prompt_blog_image }}">
-              <label>
-                <span>Commit message</span>
-                <input name="commit_message" value="{{ state.commit_message }}">
-              </label>
-              <button type="submit">Commit and Push</button>
+              <input type="hidden" name="final_title" value="{{ state.final_title }}">
+              <input type="hidden" name="final_markdown" value="{{ state.final_markdown }}">
+              <input type="hidden" name="keywords" value="{{ state.keywords | join(',') }}">
+              <input type="hidden" name="title_candidates" value="{{ state.title_candidates | join(',') }}">
+              <input type="hidden" name="tags" value="{{ state.tags | join(',') }}">
+              <input type="hidden" name="summary" value="{{ state.summary }}">
+              <button type="submit" data-default-label="대표 이미지 생성" data-loading-label="이미지 생성 중">대표 이미지 생성</button>
             </form>
+
+            {% if state.image_url %}
+            <div class="image-result">
+              <img src="{{ state.image_url }}" alt="생성된 블로그 대표 이미지">
+              <p class="meta">저장 위치 <code>{{ state.image_path }}</code></p>
+              {% if state.image_caption %}
+              <p>{{ state.image_caption }}</p>
+              {% endif %}
+            </div>
+            {% endif %}
+          </article>
+
+          <article class="panel panel-preview">
+            <div class="copy-head">
+              <h3>{{ state.final_title or "최종 초안" }}</h3>
+              <div class="copy-actions">
+                <button type="button" class="copy-button" data-copy-html-target="rendered-markdown" data-copy-text-target="final-markdown" data-default-label="네이버용 서식 복사">네이버용 서식 복사</button>
+                <button type="button" class="copy-button copy-button-secondary" data-copy-target="final-markdown" data-default-label="Markdown 복사">Markdown 복사</button>
+              </div>
+            </div>
+            <div id="rendered-markdown" class="markdown-viewer">{{ state.final_html | safe }}</div>
+            <textarea id="final-markdown" class="copy-source" readonly>{{ state.final_markdown }}</textarea>
           </article>
         </div>
         {% else %}
         <article class="panel panel-empty">
-          <p>No draft yet. Generate one from the form above and the markdown preview will appear here.</p>
+          <p>아직 실행 결과가 없습니다. 위 입력만 채우고 에이전트를 실행하면 네이버 블로그에 붙여넣기 쉬운 최종 글이 여기에 표시됩니다.</p>
         </article>
         {% endif %}
       </section>
     </main>
+    <div class="loading-overlay" data-loading-overlay aria-hidden="true">
+      <div class="loading-box" role="status" aria-live="polite">
+        <div class="spinner"></div>
+        <strong data-loading-title>진행 중입니다</strong>
+        <p data-loading-copy>잠시만 기다려 주세요.</p>
+      </div>
+    </div>
+    <script>
+      const loadingOverlay = document.querySelector("[data-loading-overlay]");
+      const loadingCopy = document.querySelector("[data-loading-copy]");
+
+      document.querySelectorAll("form[data-loading-message]").forEach((form) => {
+        form.addEventListener("submit", () => {
+          const button = form.querySelector("button[type='submit']");
+          if (button) {
+            button.disabled = true;
+            button.textContent = button.dataset.loadingLabel || "진행 중";
+          }
+          if (loadingCopy) {
+            loadingCopy.textContent = form.dataset.loadingMessage || "잠시만 기다려 주세요.";
+          }
+          if (loadingOverlay) {
+            loadingOverlay.classList.add("is-visible");
+            loadingOverlay.setAttribute("aria-hidden", "false");
+          }
+        });
+      });
+
+      document.querySelectorAll("[data-copy-target]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const target = document.getElementById(button.dataset.copyTarget);
+          if (!target) return;
+
+          const originalLabel = button.dataset.defaultLabel || button.textContent;
+          try {
+            await navigator.clipboard.writeText(target.value);
+            button.textContent = "복사 완료";
+          } catch {
+            target.focus();
+            target.select();
+            document.execCommand("copy");
+            button.textContent = "복사 완료";
+          }
+
+          window.setTimeout(() => {
+            button.textContent = originalLabel;
+          }, 1600);
+        });
+      });
+
+      document.querySelectorAll("[data-copy-html-target]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const htmlTarget = document.getElementById(button.dataset.copyHtmlTarget);
+          const textTarget = document.getElementById(button.dataset.copyTextTarget);
+          if (!htmlTarget || !textTarget) return;
+
+          const originalLabel = button.dataset.defaultLabel || button.textContent;
+          const html = buildNaverCopyHtml(htmlTarget);
+          const text = htmlTarget.innerText || textTarget.value;
+
+          try {
+            if (navigator.clipboard && window.ClipboardItem) {
+              await navigator.clipboard.write([
+                new ClipboardItem({
+                  "text/html": new Blob([html], { type: "text/html" }),
+                  "text/plain": new Blob([text], { type: "text/plain" }),
+                }),
+              ]);
+            } else {
+              const range = document.createRange();
+              const selection = window.getSelection();
+              range.selectNodeContents(htmlTarget);
+              selection.removeAllRanges();
+              selection.addRange(range);
+              document.execCommand("copy");
+              selection.removeAllRanges();
+            }
+            button.textContent = "서식 복사 완료";
+          } catch {
+            const range = document.createRange();
+            const selection = window.getSelection();
+            range.selectNodeContents(htmlTarget);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand("copy");
+            selection.removeAllRanges();
+            button.textContent = "서식 복사 완료";
+          }
+
+          window.setTimeout(() => {
+            button.textContent = originalLabel;
+          }, 1600);
+        });
+      });
+
+      function buildNaverCopyHtml(source) {
+        const clone = source.cloneNode(true);
+
+        clone.querySelectorAll("h1").forEach((node) => {
+          node.setAttribute("style", "font-size:26px;font-weight:700;line-height:1.35;margin:0 0 18px 0;");
+        });
+        clone.querySelectorAll("h2").forEach((node) => {
+          node.setAttribute("style", "font-size:21px;font-weight:700;line-height:1.4;margin:30px 0 14px 0;");
+        });
+        clone.querySelectorAll("h3").forEach((node) => {
+          node.setAttribute("style", "font-size:18px;font-weight:700;line-height:1.45;margin:24px 0 12px 0;");
+        });
+        clone.querySelectorAll("p").forEach((node) => {
+          node.setAttribute("style", "font-size:16px;line-height:1.8;margin:0 0 16px 0;");
+        });
+        clone.querySelectorAll("ul, ol").forEach((node) => {
+          node.setAttribute("style", "font-size:16px;line-height:1.8;margin:0 0 18px 24px;padding:0;");
+        });
+        clone.querySelectorAll("li").forEach((node) => {
+          node.setAttribute("style", "margin:0 0 8px 0;");
+        });
+        clone.querySelectorAll("pre").forEach((node) => {
+          node.setAttribute("style", "white-space:pre-wrap;font-size:14px;line-height:1.6;background:#f6f6f6;padding:14px;margin:0 0 18px 0;");
+        });
+        clone.querySelectorAll("code").forEach((node) => {
+          node.setAttribute("style", "font-family:monospace;background:#f6f6f6;padding:2px 5px;");
+        });
+
+        return `<div style="font-size:16px;line-height:1.8;">${clone.innerHTML}</div>`;
+      }
+    </script>
   </body>
 </html>

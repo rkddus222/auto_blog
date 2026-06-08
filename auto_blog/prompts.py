@@ -55,6 +55,26 @@ def build_blog_prompt(request: BlogRequest, templates: PromptTemplates | None = 
     return render_prompt(_templates(templates).blog, _request_values(request))
 
 
+def build_keyword_prompt(request: BlogRequest, templates: PromptTemplates | None = None) -> str:
+    values = _request_values(request)
+    return render_prompt(_templates(templates).keywords, values)
+
+
+def build_classification_prompt(request: BlogRequest, templates: PromptTemplates | None = None) -> str:
+    values = _request_values(request)
+    return render_prompt(_templates(templates).classify_topic, values)
+
+
+def build_tool_research_prompt(
+    request: BlogRequest,
+    classification: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["classification"] = classification
+    return render_prompt(_templates(templates).research_tool, values)
+
+
 def build_research_brief_prompt(request: BlogRequest, templates: PromptTemplates | None = None) -> str:
     values = _request_values(request)
     return render_prompt(_templates(templates).research, values)
@@ -72,8 +92,8 @@ def build_outline_prompt(
 
 def build_draft_prompt(
     request: BlogRequest,
-    research_brief: str,
-    outline: str,
+    research_brief: str = "",
+    outline: str = "",
     templates: PromptTemplates | None = None,
 ) -> str:
     values = _request_values(request)
@@ -82,14 +102,54 @@ def build_draft_prompt(
     return render_prompt(_templates(templates).draft, values)
 
 
+def build_tool_draft_prompt(
+    request: BlogRequest,
+    classification: str,
+    research_notes: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["classification"] = classification
+    values["research_notes"] = research_notes
+    return render_prompt(_templates(templates).draft_tool, values)
+
+
 def build_polish_prompt(
     request: BlogRequest,
     draft_markdown: str,
+    classification: str = "",
+    research_notes: str = "",
     templates: PromptTemplates | None = None,
 ) -> str:
     values = _request_values(request)
     values["draft_markdown"] = draft_markdown
+    values["classification"] = classification or "없음"
+    values["research_notes"] = research_notes or "없음"
     return render_prompt(_templates(templates).polish, values)
+
+
+def build_grounded_validation_prompt(
+    request: BlogRequest,
+    draft_markdown: str,
+    classification: str,
+    research_notes: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["draft_markdown"] = draft_markdown
+    values["classification"] = classification
+    values["research_notes"] = research_notes
+    return render_prompt(_templates(templates).validate_grounded, values)
+
+
+def build_metadata_prompt(
+    request: BlogRequest,
+    final_text: str,
+    templates: PromptTemplates | None = None,
+) -> str:
+    values = _request_values(request)
+    values["final_text"] = final_text
+    return render_prompt(_templates(templates).metadata, values)
 
 
 def build_topic_ideas_prompt(

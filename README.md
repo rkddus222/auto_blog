@@ -43,21 +43,31 @@ GEMINI_API_KEY=
 autoblog-web
 ```
 
-브라우저에서 `http://127.0.0.1:8000`으로 접속하면 다음 흐름을 사용할 수 있습니다.
+브라우저에서 `http://127.0.0.1:8000`으로 접속하면 다음 LangGraph 에이전트 흐름을 한 번에 실행할 수 있습니다.
 
-- 주제 아이디어 생성
-- 블로그 초안 생성
-- 생성된 Markdown 미리보기
-- Git 커밋 및 푸시
+처음 실행부터 설치까지 한 번에 처리하려면 루트에서 다음 스크립트를 실행해도 됩니다.
+
+```bash
+./run.sh
+```
+
+- 처음에 주제, 독자, 톤 입력
+- 주제 유형과 최신 정보 필요 여부 분류
+- LLM으로 핵심 키워드 추출
+- 도구/설치/명령어처럼 최신 정보가 필요한 주제는 검색 기반 리서치 경로로 분기
+- 일반 글은 바로 초안 작성, 도구 사용법 글은 리서치 노트를 바탕으로 전용 초안 작성
+- 초안을 Markdown으로 다듬고, 웹 UI에서 렌더링된 결과를 네이버 블로그에 서식째 복사할 수 있도록 노출
 
 ## 4. LangGraph 파이프라인
 
-글 생성은 이제 LangGraph 다중 노드로 동작합니다.
+글 생성은 LangGraph 다중 노드로 동작합니다.
 
-- `research`: 독자 의도와 핵심 포인트 정리
-- `outline`: 제목과 섹션 구조 설계
-- `draft`: 초안 작성
-- `polish`: 문장 흐름과 SEO 표현 정리
+- `classify_topic`: 주제 유형과 최신 정보 필요 여부 분류
+- `extract_keywords`: 주제와 독자를 바탕으로 SEO 키워드 추출
+- `research_tool`: 도구/설치/명령어 주제일 때 검색 기반 리서치 수행
+- `draft` 또는 `draft_tool`: 일반 글 또는 도구 사용법 글 초안 작성
+- `polish`: 문장 흐름과 SEO 표현을 Markdown 형식으로 정리
+- `validate_grounded`: 리서치 경로를 탄 글의 설치 명령/명령어/제품 설명을 리서치 노트 기준으로 재검수
 - `preview` 또는 `save`: `dry-run`이면 메모리에서만 반환, 일반 실행이면 파일 저장
 
 구현 파일은 [auto_blog/graph_flow.py](/mnt/d/GitHub/auto_blog/auto_blog/graph_flow.py)입니다.
@@ -67,15 +77,20 @@ autoblog-web
 프롬프트는 이제 코드에 박아두지 않고 [auto_blog/prompt_presets](/mnt/d/GitHub/auto_blog/auto_blog/prompt_presets) 아래 Markdown 파일로 분리했습니다.
 
 - `topic_ideas.md`
+- `classify_topic.md`
+- `keywords.md`
+- `research_tool.md`
 - `research.md`
 - `outline.md`
 - `draft.md`
+- `draft_tool.md`
 - `polish.md`
+- `validate_grounded.md`
 - `blog_image.md`
 
-템플릿 변수는 `${topic}`, `${audience}`, `${language}`, `${keywords}`, `${research_brief}`, `${outline}` 같은 형태로 치환됩니다.
+템플릿 변수는 `${topic}`, `${audience}`, `${language}`, `${keywords}`, `${classification}`, `${research_notes}` 같은 형태로 치환됩니다.
 
-웹 UI에서는 각 단계의 프롬프트를 textarea로 직접 수정해 바로 실행할 수 있습니다.
+웹 UI에서는 주제, 독자, 톤만 입력하면 에이전트가 분류와 리서치 경로를 자동으로 선택합니다. 최종 결과는 Markdown 뷰어로 렌더링되며, `네이버용 서식 복사` 버튼으로 렌더링된 HTML을 클립보드에 복사할 수 있습니다.
 
 ## 6. CLI 사용
 
@@ -99,7 +114,7 @@ autoblog write "2026년 AI 자동화 트렌드" \
   --cta "뉴스레터 구독을 유도"
 ```
 
-생성된 초안은 `output/` 아래에 Markdown 파일로 저장됩니다.
+생성된 초안은 `output/` 아래에 텍스트 기반 글 파일로 저장됩니다.
 
 대표 이미지 생성:
 
@@ -121,7 +136,7 @@ autoblog publish "2026년 AI 자동화 트렌드" \
 
 `publish`는 다음을 수행합니다.
 
-- Markdown 파일 생성
+- 블로그 글 파일 생성
 - 해당 파일만 `git add`
 - 자동 커밋 메시지 생성
 - 현재 브랜치 upstream으로 `git push`

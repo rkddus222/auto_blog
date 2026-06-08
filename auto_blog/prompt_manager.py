@@ -7,10 +7,16 @@ from string import Template
 
 PROMPT_KEYS = (
     "blog",
+    "classify_topic",
+    "keywords",
+    "research_tool",
     "research",
     "outline",
     "draft",
+    "draft_tool",
     "polish",
+    "validate_grounded",
+    "metadata",
     "topic_ideas",
     "blog_image",
 )
@@ -19,10 +25,16 @@ PROMPT_KEYS = (
 @dataclass(slots=True)
 class PromptTemplates:
     blog: str
+    classify_topic: str
+    keywords: str
+    research_tool: str
     research: str
     outline: str
     draft: str
+    draft_tool: str
     polish: str
+    validate_grounded: str
+    metadata: str
     topic_ideas: str
     blog_image: str
 

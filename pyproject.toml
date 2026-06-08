@@ -14,6 +14,7 @@ dependencies = [
   "google-auth>=2.35.0",
   "jinja2>=3.1.4",
   "langgraph>=0.2.0",
+  "markdown>=3.6",
   "python-dotenv>=1.0.1",
   "python-multipart>=0.0.9",
   "uvicorn>=0.30.0",
@@ -22,6 +23,9 @@ dependencies = [
 [project.scripts]
 autoblog = "auto_blog.cli:main"
 autoblog-web = "auto_blog.web:run"
+
+[tool.setuptools.packages.find]
+include = ["auto_blog*"]
 
 [tool.setuptools.package-data]
 auto_blog = ["prompt_presets/*.md", "templates/*.html", "static/*.css"]
