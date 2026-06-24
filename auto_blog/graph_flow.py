@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Literal
@@ -27,6 +28,16 @@ PromptGenerator = Callable[[str], str]
 
 TOOL_TOPIC_TYPES = {"tool_tutorial", "command_reference"}
 CURRENT_FACT_TOPIC_TYPES = {"comparison", "recommendation", "news_or_current"}
+
+
+def log_llm_step(step: str, text: str) -> None:
+    """Print an LLM step and its output to stdout so it shows in the run.sh terminal."""
+    border = "=" * 70
+    print(f"\n{border}", flush=True)
+    print(f"[auto_blog] ▶ {step}", flush=True)
+    print(border, flush=True)
+    print(text.strip(), flush=True)
+    print(f"{border}\n", file=sys.stdout, flush=True)
 
 
 class BlogGraphState(TypedDict, total=False):
@@ -137,6 +148,7 @@ def classify_topic_node(state: BlogGraphState) -> dict[str, object]:
     classification_text = generator(
         build_classification_prompt(request, templates=state["prompt_templates"])
     )
+    log_llm_step("1. 주제 분류 (classify)", classification_text)
     classification = parse_classification(classification_text)
     return {
         "classification_text": classification_text,
@@ -148,6 +160,7 @@ def extract_keywords_node(state: BlogGraphState) -> dict[str, object]:
     request = state["request"]
     generator = state["generator"]
     keywords_text = generator(build_keyword_prompt(request, templates=state["prompt_templates"]))
+    log_llm_step("2. 키워드 추출 (keywords)", keywords_text)
     keywords = parse_generated_keywords(keywords_text)
     return {
         "keywords_text": keywords_text,
@@ -178,61 +191,61 @@ def research_tool_node(state: BlogGraphState) -> dict[str, str]:
     request = state["request"]
     classification = state.get("classification", {})
     generator = state.get("grounded_generator") or state["generator"]
-    return {
-        "research_notes": generator(
-            build_tool_research_prompt(
-                request=request,
-                classification=classification_to_text(classification),
-                templates=state["prompt_templates"],
-            )
+    research_notes = generator(
+        build_tool_research_prompt(
+            request=request,
+            classification=classification_to_text(classification),
+            templates=state["prompt_templates"],
         )
-    }
+    )
+    log_llm_step("3. 리서치 (research)", research_notes)
+    return {"research_notes": research_notes}
 
 
 def draft_node(state: BlogGraphState) -> dict[str, str]:
     request = state["request"]
     generator = state["generator"]
-    return {
-        "draft_markdown": generator(
-            build_draft_prompt(
-                request=request,
-                templates=state["prompt_templates"],
-            )
+    draft_markdown = generator(
+        build_draft_prompt(
+            request=request,
+            templates=state["prompt_templates"],
         )
-    }
+    )
+    log_llm_step("4. 초안 작성 (draft)", draft_markdown)
+    return {"draft_markdown": draft_markdown}
 
 
 def tool_draft_node(state: BlogGraphState) -> dict[str, str]:
     request = state["request"]
     generator = state["generator"]
     classification = state.get("classification", {})
-    return {
-        "draft_markdown": generator(
-            build_tool_draft_prompt(
-                request=request,
-                classification=classification_to_text(classification),
-                research_notes=state.get("research_notes", ""),
-                templates=state["prompt_templates"],
-            )
+    draft_markdown = generator(
+        build_tool_draft_prompt(
+            request=request,
+            classification=classification_to_text(classification),
+            research_notes=state.get("research_notes", ""),
+            templates=state["prompt_templates"],
         )
-    }
+    )
+    log_llm_step("4. 초안 작성 (tool draft)", draft_markdown)
+    return {"draft_markdown": draft_markdown}
 
 
 def polish_node(state: BlogGraphState) -> dict[str, str]:
     request = state["request"]
     generator = state["generator"]
     classification = state.get("classification", {})
-    return {
-        "final_markdown": generator(
-            build_polish_prompt(
-                request=request,
-                draft_markdown=state["draft_markdown"],
-                classification=classification_to_text(classification),
-                research_notes=state.get("research_notes", ""),
-                templates=state["prompt_templates"],
-            )
+    final_markdown = generator(
+        build_polish_prompt(
+            request=request,
+            draft_markdown=state["draft_markdown"],
+            classification=classification_to_text(classification),
+            research_notes=state.get("research_notes", ""),
+            templates=state["prompt_templates"],
         )
-    }
+    )
+    log_llm_step("5. 다듬기 (polish)", final_markdown)
+    return {"final_markdown": final_markdown}
 
 
 def preview_node(state: BlogGraphState) -> dict[str, GeneratedPost]:
@@ -258,17 +271,17 @@ def validate_grounded_node(state: BlogGraphState) -> dict[str, str]:
     request = state["request"]
     generator = state["generator"]
     classification = state.get("classification", {})
-    return {
-        "validated_markdown": generator(
-            build_grounded_validation_prompt(
-                request=request,
-                draft_markdown=state["final_markdown"],
-                classification=classification_to_text(classification),
-                research_notes=state.get("research_notes", ""),
-                templates=state["prompt_templates"],
-            )
+    validated_markdown = generator(
+        build_grounded_validation_prompt(
+            request=request,
+            draft_markdown=state["final_markdown"],
+            classification=classification_to_text(classification),
+            research_notes=state.get("research_notes", ""),
+            templates=state["prompt_templates"],
         )
-    }
+    )
+    log_llm_step("6. 사실 검증 (validate)", validated_markdown)
+    return {"validated_markdown": validated_markdown}
 
 
 def metadata_node(state: BlogGraphState) -> dict[str, object]:
@@ -282,6 +295,7 @@ def metadata_node(state: BlogGraphState) -> dict[str, object]:
             templates=state["prompt_templates"],
         )
     )
+    log_llm_step("7. 메타데이터 (metadata)", metadata_text)
     return {
         "metadata_text": metadata_text,
         "metadata": parse_metadata(metadata_text),

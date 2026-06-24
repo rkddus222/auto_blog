@@ -1,0 +1,3 @@
+[console_scripts]
+autoblog = auto_blog.cli:main
+autoblog-web = auto_blog.web:run
